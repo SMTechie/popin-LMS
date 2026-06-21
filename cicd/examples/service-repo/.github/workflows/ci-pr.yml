@@ -1,0 +1,13 @@
+name: PR Security
+
+on:
+  pull_request:
+
+jobs:
+  pr:
+    uses: popin-org/cicd-templates/.github/workflows/reusable-pr.yml@main
+    with:
+      install_cmd: "npm ci"
+      lint_cmd: "npm run lint"
+      test_cmd: "npm test"
+      trivy_fs: true

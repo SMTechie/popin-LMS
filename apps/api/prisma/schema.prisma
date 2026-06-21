@@ -1,0 +1,2523 @@
+// POPIN-LMS Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id           String                @id @default(uuid())
+  name         String
+  code         String
+  portalUrl    String
+  websiteUrl   String?
+  createdAt    DateTime              @default(now())
+  integrations ExternalIntegration[]
+  apiLogs      ApiRequestLog[]
+  webhookLogs  WebhookDelivery[]
+  applications Application[]
+  crmLeads     CrmLead[]
+
+  @@unique([code])
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AutomationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AutomationRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum EmailAccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum OrderStatus {
+  PendingPayment
+  PendingEFTVerification
+  Paid
+  Picking
+  ReadyForCollection
+  Collected
+  Completed
+  Returned
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum CalendarConnectionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryItemType {
+  CONSUMABLE
+  ASSET
+  UNIFORM
+  RESELL
+  SERVICE_LINKED
+}
+
+enum InventoryTrackingType {
+  NONE
+  BATCH
+  SERIAL
+}
+
+enum InventoryMovementType {
+  RECEIVE
+  ISSUE
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT
+  RETURN
+  COUNT
+  RESERVATION
+  RELEASE
+}
+
+enum InventoryRequestStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum InventoryTransferStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+enum InventoryAdjustmentStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+enum InventoryCountStatus {
+  DRAFT
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  CLOSED
+}
+
+enum InventoryAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum InventoryAlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  EXPIRY
+  VARIANCE
+  ABNORMAL_ADJUSTMENT
+  PENDING_APPROVAL
+}
+
+enum InventoryIssueType {
+  DEPARTMENT
+  STAFF
+  STUDENT
+  HOSTEL
+  MAINTENANCE
+  EVENT
+}
+
+enum TicketType {
+  MAINTENANCE
+  IT_SUPPORT
+  PROCUREMENT
+  REQUISITION
+  INVENTORY_ADJUSTMENT
+  ADMISSION_CASE
+}
+
+enum TicketStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PROCUREMENT
+  ORDERED
+  DELIVERED
+  CLOSED
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RequisitionItemType {
+  EXISTING_INVENTORY
+  NEW_INVENTORY
+  CONSUMABLE
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+model User {
+  id                           String                       @id @default(uuid())
+  email                        String                       @unique
+  passwordHash                 String?
+  name                         String?
+  status                       UserStatus                   @default(ACTIVE)
+  createdAt                    DateTime                     @default(now())
+  updatedAt                    DateTime                     @updatedAt
+  lastLoginAt                  DateTime?
+  userType                     String                       @default("PARENT")
+  selfRegistered               Boolean                      @default(false)
+  emailVerifiedAt              DateTime?
+  roles                        UserRole[]
+  external                     ExternalAccount[]
+  createdCards                 Card[]                       @relation("CardCreatedBy")
+  assignedCards                Card[]                       @relation("CardAssignedTo")
+  comments                     CardComment[]
+  pushSubs                     PushSubscription[]
+  staffAppointments            Appointment[]                @relation("AppointmentStaff")
+  parentAppointments           Appointment[]                @relation("AppointmentParent")
+  calendarConnections          CalendarConnection[]
+  savedViews                   SavedView[]
+  notificationPrefs            NotificationPreference?
+  locationAccess               InventoryLocationAccess[]
+  createdTickets               Ticket[]                     @relation("TicketCreatedBy")
+  assignedTickets              Ticket[]                     @relation("TicketAssignedTo")
+  approvals                    TicketApproval[]             @relation("TicketApprovedBy")
+  purchaseOrders               PurchaseOrder[]              @relation("PurchaseOrderCreatedBy")
+  inventoryTransactions        InventoryTransaction[]       @relation("InventoryTransactionCreatedBy")
+  inventoryStockMovements      InventoryStockMovement[]
+  inventoryRequests            InventoryRequest[]
+  inventoryRequestApprovals    InventoryRequestApproval[]
+  inventoryIssueNotes          InventoryIssueNote[]
+  inventoryAuditLogs           InventoryAuditLog[]
+  inventoryTransfersRequested  InventoryTransfer[]          @relation("InventoryTransferRequestedBy")
+  inventoryTransfersApproved   InventoryTransfer[]          @relation("InventoryTransferApprovedBy")
+  inventoryAdjustmentsCreated  InventoryAdjustment[]        @relation("InventoryAdjustmentCreatedBy")
+  inventoryAdjustmentsApproved InventoryAdjustment[]        @relation("InventoryAdjustmentApprovedBy")
+  inventoryCountsCreated       InventoryCountSession[]      @relation("InventoryCountCreatedBy")
+  inventoryCountsApproved      InventoryCountSession[]      @relation("InventoryCountApprovedBy")
+  managedLocations             InventoryLocation[]          @relation("InventoryLocationManager")
+  applicationFormVersions      ApplicationFormVersion[]
+  guardianLinks                GuardianStudentLink[]        @relation("GuardianUser")
+  studentLinksCreated          GuardianStudentLink[]        @relation("GuardianLinkCreatedBy")
+  studentLinksVerified         GuardianStudentLink[]        @relation("GuardianLinkVerifiedBy")
+  identityProviders            IdentityProviderConnection[] @relation("IdentityProviderConnectedBy")
+}
+
+model ExternalIntegration {
+  id                           String    @id @default(uuid())
+  tenantId                     String
+  name                         String
+  websiteBaseUrl               String
+  apiKeyHash                   String
+  apiSecretEncrypted           Json
+  webhookSecretEncrypted       Json?
+  shopApiEnabled               Boolean   @default(true)
+  webhookEnabled               Boolean   @default(false)
+  webhookTargetUrl             String?
+  applicationFormApiEnabled    Boolean   @default(true)
+  publicApplyBaseUrl           String?
+  syncMode                     String    @default("api_pull")
+  defaultCatalogVisibility     String?   @default("universal")
+  requestTimeoutSeconds        Int?      @default(15)
+  retryPolicy                  Json?
+  requestSigningMode           String?   @default("hmac")
+  environment                  String?   @default("development")
+  customHeaders                Json?
+  catalogEndpoint              String?
+  callbackEndpoint             String?
+  lastApiCallAt                DateTime?
+  lastWebhookSentAt            DateTime?
+  lastCatalogSyncAt            DateTime?
+  lastApplicationLinkRequestAt DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id])
+  keys     ExternalIntegrationKey[]
+  apiLogs  ApiRequestLog[]
+  webhooks WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+model ExternalIntegrationKey {
+  id            String    @id @default(uuid())
+  integrationId String
+  keyHash       String
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  integration ExternalIntegration @relation(fields: [integrationId], references: [id])
+
+  @@index([integrationId])
+}
+
+model ApiRequestLog {
+  id            String   @id @default(uuid())
+  tenantId      String
+  integrationId String
+  endpoint      String
+  method        String
+  statusCode    Int
+  latencyMs     Int
+  ipAddress     String?
+  userAgent     String?
+  headers       Json?
+  createdAt     DateTime @default(now())
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  integration ExternalIntegration @relation(fields: [integrationId], references: [id])
+
+  @@index([tenantId])
+  @@index([integrationId])
+}
+
+model WebhookDelivery {
+  id             String    @id @default(uuid())
+  tenantId       String
+  integrationId  String
+  eventType      String
+  targetUrl      String
+  payload        Json
+  deliveryId     String
+  attemptCount   Int       @default(0)
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  lastAttemptAt  DateTime?
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  integration ExternalIntegration @relation(fields: [integrationId], references: [id])
+
+  @@unique([deliveryId])
+  @@index([tenantId])
+  @@index([integrationId])
+}
+
+model Application {
+  id          String   @id @default(uuid())
+  tenantId    String
+  sequence    Int      @default(autoincrement())
+  reference   String
+  parentName  String
+  parentEmail String
+  parentPhone String?
+  studentName String
+  grade       String
+  status      String   @default("Submitted")
+  source      String   @default("website")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([reference])
+  @@index([tenantId])
+}
+
+model CrmLead {
+  id        String   @id @default(uuid())
+  tenantId  String
+  source    String
+  name      String
+  email     String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ExternalAccount {
+  id                String    @id @default(uuid())
+  provider          String
+  providerAccountId String
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  verifiedEmail     String?
+  metadata          Json?
+  encryptedTokens   Json?
+  createdAt         DateTime  @default(now())
+  lastLoginAt       DateTime?
+
+  @@unique([provider, providerAccountId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id      String  @id @default(uuid())
+  module  String
+  action  String
+  boardId String?
+  stageId String?
+
+  roles RolePermission[]
+
+  @@unique([module, action, boardId, stageId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model Setting {
+  key   String @id
+  value Json
+}
+
+model License {
+  id                 String   @id @default(uuid())
+  maxUsers           Int
+  maxTeachers        Int
+  maxParents         Int
+  maxApiIntegrations Int
+  createdAt          DateTime @default(now())
+}
+
+model ModuleToggle {
+  id        String  @id @default(uuid())
+  moduleKey String  @unique
+  enabled   Boolean @default(true)
+}
+
+model Ticket {
+  id           String       @id @default(uuid())
+  sequence     Int          @default(autoincrement())
+  reference    String?      @unique
+  type         TicketType
+  category     String?
+  title        String
+  description  String?
+  department   String?
+  priority     String?
+  status       TicketStatus @default(DRAFT)
+  createdById  String
+  assignedToId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  createdBy             User                   @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedTo            User?                  @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  requisition           RequisitionDetail?
+  items                 RequisitionItem[]
+  approvals             TicketApproval[]
+  purchaseOrders        PurchaseOrder[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@index([type])
+  @@index([status])
+  @@index([department])
+}
+
+model RequisitionDetail {
+  id                 String    @id @default(uuid())
+  ticketId           String    @unique
+  budgetCode         String?
+  requiredDate       DateTime?
+  deliveryLocation   String?
+  vendorPreference   String?
+  procurementStatus  String?
+  approvalLevel      Int?
+  estimatedTotalCost Float?
+  ticket             Ticket    @relation(fields: [ticketId], references: [id])
+}
+
+model RequisitionItem {
+  id                 String              @id @default(uuid())
+  ticketId           String
+  itemName           String
+  category           String?
+  quantity           Int
+  estimatedUnitCost  Float?
+  totalCost          Float?
+  itemType           RequisitionItemType
+  inventoryItemId    String?
+  ticket             Ticket              @relation(fields: [ticketId], references: [id])
+  inventoryItem      InventoryItem?      @relation(fields: [inventoryItemId], references: [id])
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([ticketId])
+  @@index([inventoryItemId])
+}
+
+model TicketApproval {
+  id           String           @id @default(uuid())
+  ticketId     String
+  approverId   String
+  approvalRole String
+  decision     ApprovalDecision @default(PENDING)
+  comments     String?
+  decidedAt    DateTime?
+  ticket       Ticket           @relation(fields: [ticketId], references: [id])
+  approver     User             @relation("TicketApprovedBy", fields: [approverId], references: [id])
+
+  @@index([ticketId])
+  @@index([approverId])
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid())
+  ticketId             String
+  reference            String              @unique
+  vendor               String?
+  orderDate            DateTime            @default(now())
+  expectedDeliveryDate DateTime?
+  status               PurchaseOrderStatus @default(DRAFT)
+  createdById          String?
+  ticket               Ticket              @relation(fields: [ticketId], references: [id])
+  createdBy            User?               @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+  items                PurchaseOrderItem[]
+
+  @@index([ticketId])
+}
+
+model PurchaseOrderItem {
+  id                String           @id @default(uuid())
+  purchaseOrderId   String
+  requisitionItemId String?
+  name              String
+  quantity          Int
+  unitCost          Float?
+  totalCost         Float?
+  purchaseOrder     PurchaseOrder    @relation(fields: [purchaseOrderId], references: [id])
+  requisitionItem   RequisitionItem? @relation(fields: [requisitionItemId], references: [id])
+
+  @@index([purchaseOrderId])
+}
+
+model InventoryTransaction {
+  id              String        @id @default(uuid())
+  inventoryItemId String
+  ticketId        String?
+  transactionType String
+  quantity        Int
+  createdAt       DateTime      @default(now())
+  createdById     String?
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  ticket          Ticket?       @relation(fields: [ticketId], references: [id])
+  createdBy       User?         @relation("InventoryTransactionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([ticketId])
+}
+
+model Board {
+  id               String                @id @default(uuid())
+  name             String
+  module           String
+  description      String?
+  stages           BoardStage[]
+  cards            Card[]
+  savedViews       SavedView[]
+  fieldDefinitions CardFieldDefinition[]
+  emailIdentities  BoardEmailIdentity[]
+}
+
+model SavedView {
+  id        String   @id @default(uuid())
+  userId    String
+  boardId   String
+  name      String
+  type      String
+  config    Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  board     Board    @relation(fields: [boardId], references: [id])
+
+  // Indexes for user and board saved views
+  @@index([userId])
+  @@index([boardId])
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  channels  Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model BoardStage {
+  id      String @id @default(uuid())
+  boardId String
+  name    String
+  order   Int
+  board   Board  @relation(fields: [boardId], references: [id])
+  cards   Card[]
+
+  // Index for board stage retrieval
+  @@index([boardId])
+}
+
+model Card {
+  id           String   @id @default(uuid())
+  boardId      String
+  stageId      String
+  title        String
+  description  String?
+  createdById  String
+  assignedToId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  board        Board              @relation(fields: [boardId], references: [id])
+  stage        BoardStage         @relation(fields: [stageId], references: [id])
+  createdBy    User               @relation("CardCreatedBy", fields: [createdById], references: [id])
+  assignedTo   User?              @relation("CardAssignedTo", fields: [assignedToId], references: [id])
+  comments     CardComment[]
+  attachments  CardAttachment[]
+  linksFrom    CardLink[]         @relation("CardLinkFrom")
+  linksTo      CardLink[]         @relation("CardLinkTo")
+  fields       CardFieldValue[]
+  stageHistory CardStageHistory[]
+
+  // Indexes for board and stage filtering
+  @@index([boardId])
+  @@index([stageId])
+}
+
+model CardFieldValue {
+  id       String @id @default(uuid())
+  cardId   String
+  fieldKey String
+  value    Json
+  card     Card   @relation(fields: [cardId], references: [id])
+
+  @@unique([cardId, fieldKey])
+}
+
+model CardFieldDefinition {
+  id        String   @id @default(uuid())
+  boardId   String
+  fieldKey  String
+  label     String
+  type      String
+  config    Json
+  createdAt DateTime @default(now())
+  board     Board    @relation(fields: [boardId], references: [id])
+
+  @@unique([boardId, fieldKey])
+  // Index for board-level field definitions
+  @@index([boardId])
+}
+
+model CardComment {
+  id        String   @id @default(uuid())
+  cardId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  card      Card     @relation(fields: [cardId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+}
+
+model CardAttachment {
+  id        String   @id @default(uuid())
+  cardId    String
+  filename  String
+  url       String
+  size      Int
+  mimeType  String
+  createdAt DateTime @default(now())
+  card      Card     @relation(fields: [cardId], references: [id])
+}
+
+model CardLink {
+  id         String @id @default(uuid())
+  fromCardId String
+  toCardId   String
+  relation   String
+  fromCard   Card   @relation("CardLinkFrom", fields: [fromCardId], references: [id])
+  toCard     Card   @relation("CardLinkTo", fields: [toCardId], references: [id])
+}
+
+model CardStageHistory {
+  id          String   @id @default(uuid())
+  cardId      String
+  fromStageId String?
+  toStageId   String
+  movedById   String
+  movedAt     DateTime @default(now())
+  card        Card     @relation(fields: [cardId], references: [id])
+
+  // Index for analytics and SLA calculations
+  @@index([cardId])
+}
+
+model AutomationRule {
+  id       String                  @id @default(uuid())
+  name     String
+  trigger  String
+  boardId  String?
+  status   AutomationStatus        @default(ACTIVE)
+  versions AutomationRuleVersion[]
+  runs     AutomationRun[]
+}
+
+model AutomationRuleVersion {
+  id          String         @id @default(uuid())
+  ruleId      String
+  version     Int
+  conditions  Json
+  actions     Json
+  createdAt   DateTime       @default(now())
+  createdById String
+  rule        AutomationRule @relation(fields: [ruleId], references: [id])
+
+  // Index for rule version lookup
+  @@index([ruleId])
+}
+
+model AutomationRun {
+  id         String              @id @default(uuid())
+  ruleId     String
+  status     AutomationRunStatus
+  payload    Json
+  createdAt  DateTime            @default(now())
+  finishedAt DateTime?
+  error      String?
+  rule       AutomationRule      @relation(fields: [ruleId], references: [id])
+}
+
+model EmailAccount {
+  id            String               @id @default(uuid())
+  provider      String
+  email         String
+  config        Json
+  status        EmailAccountStatus   @default(ACTIVE)
+  defaultUserId String?
+  createdById   String
+  messages      EmailMessage[]
+  identities    BoardEmailIdentity[]
+}
+
+model BoardEmailIdentity {
+  id          String       @id @default(uuid())
+  boardId     String
+  accountId   String
+  fromName    String
+  fromAddress String
+  createdAt   DateTime     @default(now())
+  board       Board        @relation(fields: [boardId], references: [id])
+  account     EmailAccount @relation(fields: [accountId], references: [id])
+
+  @@index([boardId])
+}
+
+model EmailRoutingRule {
+  id         String   @id @default(uuid())
+  name       String
+  boardId    String
+  matchType  String
+  matchValue String
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+}
+
+model EmailMessage {
+  id        String       @id @default(uuid())
+  accountId String
+  messageId String
+  subject   String
+  from      String
+  to        String
+  raw       String
+  boardId   String?
+  cardId    String?
+  createdAt DateTime     @default(now())
+  account   EmailAccount @relation(fields: [accountId], references: [id])
+}
+
+model EmailOutbox {
+  id        String    @id @default(uuid())
+  to        String
+  subject   String
+  body      String
+  status    String    @default("PENDING")
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+  error     String?
+}
+
+model EmailThread {
+  id        String   @id @default(uuid())
+  messageId String
+  createdAt DateTime @default(now())
+}
+
+model PaymentTransaction {
+  id          String        @id @default(uuid())
+  provider    String
+  providerRef String
+  amount      Float
+  currency    String
+  status      PaymentStatus
+  orderId     String?
+
+  @@unique([provider, providerRef])
+}
+
+model PaymentWebhook {
+  id          String   @id @default(uuid())
+  provider    String
+  providerRef String
+  payload     Json
+  receivedAt  DateTime @default(now())
+
+  @@unique([provider, providerRef])
+}
+
+model StoreOrder {
+  id              String           @id @default(uuid())
+  parentId        String
+  status          OrderStatus      @default(PendingPayment)
+  totalAmount     Float
+  paymentMethod   String
+  eftProofUrl     String?
+  eftVerifiedById String?
+  eftVerifiedAt   DateTime?
+  createdAt       DateTime         @default(now())
+  items           StoreOrderItem[]
+}
+
+model StoreOrderItem {
+  id        String       @id @default(uuid())
+  orderId   String
+  productId String
+  name      String
+  quantity  Int
+  price     Float
+  order     StoreOrder   @relation(fields: [orderId], references: [id])
+  product   StoreProduct @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+
+model StoreCategory {
+  id               String          @id @default(uuid())
+  tenantId         String?
+  catalogId        String?
+  parentCategoryId String?
+  name             String
+  slug             String          @unique
+  description      String?
+  sortOrder        Int             @default(0)
+  isActive         Boolean         @default(true)
+  imageUrl         String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  products         StoreProduct[]
+  catalog          StoreCatalog?   @relation(fields: [catalogId], references: [id])
+  parent           StoreCategory?  @relation("StoreCategoryParent", fields: [parentCategoryId], references: [id])
+  children         StoreCategory[] @relation("StoreCategoryParent")
+
+  @@index([tenantId])
+  @@index([catalogId])
+}
+
+model StoreProduct {
+  id                  String               @id @default(uuid())
+  tenantId            String?
+  catalogId           String?
+  categoryId          String?
+  productType         String?
+  sku                 String?
+  name                String
+  slug                String               @unique
+  shortDescription    String?
+  longDescription     String?
+  basePrice           Float?               @default(0)
+  costPrice           Float?               @default(0)
+  vatRate             Float                @default(15)
+  vatInclusive        Boolean              @default(true)
+  barcode             String?
+  currencyCode        String               @default("ZAR")
+  stockQuantity       Int?                 @default(0)
+  lowStockThreshold   Int?                 @default(0)
+  trackInventory      Boolean              @default(true)
+  isActive            Boolean              @default(true)
+  isFeatured          Boolean              @default(false)
+  allowOnlinePurchase Boolean              @default(true)
+  sizeOptions         Json?
+  colorOptions        Json?
+  genderGroup         String?
+  gradeGroup          String?
+  supplierId          String?
+  reorderQuantity     Int                  @default(0)
+  collectionLocation  String?
+  returnPolicy        String?
+  visibility          String               @default("universal")
+  lastSyncedAt        DateTime?
+  description         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  category            StoreCategory?       @relation(fields: [categoryId], references: [id])
+  catalog             StoreCatalog?        @relation(fields: [catalogId], references: [id])
+  variants            StoreVariant[]
+  images              StoreImage[]
+  stockMovements      StoreStockMovement[]
+  orderItems          StoreOrderItem[]
+
+  @@index([tenantId])
+  @@index([catalogId])
+  @@index([categoryId])
+}
+
+model StoreStockMovement {
+  id               String       @id @default(uuid())
+  tenantId         String
+  productId        String
+  type             String
+  quantityChange   Int          @default(0)
+  previousQuantity Int
+  newQuantity      Int
+  previousPrice    Float?
+  newPrice         Float?
+  reason           String?
+  reference        String?
+  actorId          String?
+  createdAt        DateTime     @default(now())
+  product          StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId, createdAt])
+}
+
+model StoreVariant {
+  id            String       @id @default(uuid())
+  tenantId      String?
+  productId     String
+  name          String
+  sku           String?      @unique
+  size          String?
+  color         String?
+  priceOverride Float?
+  stockQuantity Int?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  product       StoreProduct @relation(fields: [productId], references: [id])
+  price         StorePrice?
+  stock         StoreStock?
+
+  @@index([tenantId])
+  @@index([productId])
+}
+
+model StorePrice {
+  id        String       @id @default(uuid())
+  variantId String       @unique
+  currency  String       @default("ZAR")
+  amount    Float
+  updatedAt DateTime     @updatedAt
+  variant   StoreVariant @relation(fields: [variantId], references: [id])
+}
+
+model StoreStock {
+  id        String       @id @default(uuid())
+  variantId String       @unique
+  quantity  Int
+  updatedAt DateTime     @updatedAt
+  variant   StoreVariant @relation(fields: [variantId], references: [id])
+}
+
+model StoreImage {
+  id        String       @id @default(uuid())
+  tenantId  String?
+  productId String
+  url       String
+  altText   String?
+  sortOrder Int          @default(0)
+  isPrimary Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  product   StoreProduct @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([productId])
+}
+
+model StoreCatalog {
+  id          String          @id @default(uuid())
+  tenantId    String
+  name        String
+  slug        String
+  status      String          @default("draft")
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  categories  StoreCategory[]
+  products    StoreProduct[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model StoreSyncEvent {
+  id         String   @id @default(uuid())
+  tenantId   String
+  eventType  String
+  entityType String
+  entityId   String
+  payload    Json
+  status     String   @default("pending")
+  source     String   @default("system_job")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+}
+
+model InventoryCategory {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  code        String?         @unique
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       InventoryItem[]
+}
+
+model InventoryUnit {
+  id           String          @id @default(uuid())
+  name         String          @unique
+  abbreviation String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  items        InventoryItem[]
+}
+
+model InventoryLocation {
+  id            String                    @id @default(uuid())
+  name          String
+  code          String?                   @unique
+  description   String?
+  isActive      Boolean                   @default(true)
+  managerId     String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  manager       User?                     @relation("InventoryLocationManager", fields: [managerId], references: [id])
+  bins          InventoryBin[]
+  balances      InventoryStockBalance[]
+  movementsFrom InventoryStockMovement[]  @relation("InventoryMovementFrom")
+  movementsTo   InventoryStockMovement[]  @relation("InventoryMovementTo")
+  requests      InventoryRequest[]
+  transfersFrom InventoryTransfer[]       @relation("InventoryTransferFrom")
+  transfersTo   InventoryTransfer[]       @relation("InventoryTransferTo")
+  adjustments   InventoryAdjustment[]
+  counts        InventoryCountSession[]
+  accessRules   InventoryLocationAccess[]
+  reorderRules  InventoryReorderRule[]
+  batches       InventoryBatch[]
+  serials       InventorySerial[]
+  alerts        InventoryAlert[]
+
+  @@index([isActive])
+}
+
+model InventoryLocationAccess {
+  id         String            @id @default(uuid())
+  userId     String
+  locationId String
+  canIssue   Boolean           @default(false)
+  canApprove Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  user       User              @relation(fields: [userId], references: [id])
+  location   InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([userId, locationId])
+  @@index([locationId])
+}
+
+model InventoryBin {
+  id          String                   @id @default(uuid())
+  locationId  String
+  code        String
+  description String?
+  createdAt   DateTime                 @default(now())
+  location    InventoryLocation        @relation(fields: [locationId], references: [id])
+  balances    InventoryStockBalance[]
+  movements   InventoryStockMovement[]
+
+  @@unique([locationId, code])
+  @@index([locationId])
+}
+
+model InventoryItem {
+  id                String                      @id @default(uuid())
+  name              String
+  sku               String                      @unique
+  description       String?
+  categoryId        String?
+  unitId            String?
+  type              InventoryItemType           @default(CONSUMABLE)
+  tracking          InventoryTrackingType       @default(NONE)
+  barcode           String?
+  imageUrl          String?
+  reorderPoint      Int                         @default(0)
+  minStock          Int                         @default(0)
+  maxStock          Int?
+  isActive          Boolean                     @default(true)
+  isTrackable       Boolean                     @default(true)
+  taxRate           Float?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  category          InventoryCategory?          @relation(fields: [categoryId], references: [id])
+  unit              InventoryUnit?              @relation(fields: [unitId], references: [id])
+  variants          InventoryItemVariant[]
+  balances          InventoryStockBalance[]
+  movements         InventoryStockMovement[]
+  batches           InventoryBatch[]
+  serials           InventorySerial[]
+  reorderRules      InventoryReorderRule[]
+  supplierLinks     InventoryItemSupplier[]
+  requestLines      InventoryRequestLine[]
+  transferLines     InventoryTransferLine[]
+  adjustmentLines   InventoryAdjustmentLine[]
+  countLines        InventoryCountLine[]
+  alerts            InventoryAlert[]
+  attachments       InventoryAttachment[]
+  customFieldValues InventoryCustomFieldValue[]
+  transactions      InventoryTransaction[]
+  requisitionItems  RequisitionItem[]
+
+  @@index([categoryId])
+  @@index([unitId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model InventoryItemVariant {
+  id              String                    @id @default(uuid())
+  itemId          String
+  name            String
+  sku             String                    @unique
+  barcode         String?
+  attributes      Json?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  item            InventoryItem             @relation(fields: [itemId], references: [id])
+  balances        InventoryStockBalance[]
+  movements       InventoryStockMovement[]
+  batches         InventoryBatch[]
+  serials         InventorySerial[]
+  requestLines    InventoryRequestLine[]
+  transferLines   InventoryTransferLine[]
+  adjustmentLines InventoryAdjustmentLine[]
+  countLines      InventoryCountLine[]
+  reorderRules    InventoryReorderRule[]
+  alerts          InventoryAlert[]
+
+  @@index([itemId])
+}
+
+model InventoryItemSupplier {
+  id          String        @id @default(uuid())
+  itemId      String
+  supplierId  String
+  supplierSku String?
+  price       Float?
+  createdAt   DateTime      @default(now())
+  item        InventoryItem @relation(fields: [itemId], references: [id])
+  supplier    Supplier      @relation(fields: [supplierId], references: [id])
+
+  @@unique([itemId, supplierId])
+  @@index([supplierId])
+}
+
+model InventoryReorderRule {
+  id           String                @id @default(uuid())
+  itemId       String
+  variantId    String?
+  locationId   String?
+  minStock     Int
+  reorderPoint Int
+  maxStock     Int?
+  leadTimeDays Int?
+  createdAt    DateTime              @default(now())
+  item         InventoryItem         @relation(fields: [itemId], references: [id])
+  variant      InventoryItemVariant? @relation(fields: [variantId], references: [id])
+  location     InventoryLocation?    @relation(fields: [locationId], references: [id])
+
+  @@index([itemId])
+  @@index([locationId])
+}
+
+model InventoryStockBalance {
+  id               String                @id @default(uuid())
+  itemId           String
+  variantId        String?
+  locationId       String
+  binId            String?
+  quantityOnHand   Int                   @default(0)
+  quantityReserved Int                   @default(0)
+  averageCost      Float?                @default(0)
+  updatedAt        DateTime              @updatedAt
+  item             InventoryItem         @relation(fields: [itemId], references: [id])
+  variant          InventoryItemVariant? @relation(fields: [variantId], references: [id])
+  location         InventoryLocation     @relation(fields: [locationId], references: [id])
+  bin              InventoryBin?         @relation(fields: [binId], references: [id])
+
+  @@unique([itemId, variantId, locationId, binId])
+  @@index([locationId])
+}
+
+model InventoryStockMovement {
+  id             String                @id @default(uuid())
+  itemId         String
+  variantId      String?
+  locationFromId String?
+  locationToId   String?
+  binId          String?
+  batchId        String?
+  serialId       String?
+  quantity       Int
+  unitCost       Float?
+  type           InventoryMovementType
+  reference      String?
+  reason         String?
+  createdAt      DateTime              @default(now())
+  createdById    String?
+  item           InventoryItem         @relation(fields: [itemId], references: [id])
+  variant        InventoryItemVariant? @relation(fields: [variantId], references: [id])
+  locationFrom   InventoryLocation?    @relation("InventoryMovementFrom", fields: [locationFromId], references: [id])
+  locationTo     InventoryLocation?    @relation("InventoryMovementTo", fields: [locationToId], references: [id])
+  bin            InventoryBin?         @relation(fields: [binId], references: [id])
+  batch          InventoryBatch?       @relation(fields: [batchId], references: [id])
+  serial         InventorySerial?      @relation(fields: [serialId], references: [id])
+  createdBy      User?                 @relation(fields: [createdById], references: [id])
+
+  @@index([itemId])
+  @@index([locationFromId])
+  @@index([locationToId])
+  @@index([type])
+}
+
+model InventoryBatch {
+  id                String                   @id @default(uuid())
+  itemId            String
+  variantId         String?
+  locationId        String
+  batchNumber       String
+  expiryDate        DateTime?
+  receivedAt        DateTime                 @default(now())
+  quantityRemaining Int
+  item              InventoryItem            @relation(fields: [itemId], references: [id])
+  variant           InventoryItemVariant?    @relation(fields: [variantId], references: [id])
+  location          InventoryLocation        @relation(fields: [locationId], references: [id])
+  movements         InventoryStockMovement[]
+
+  @@index([itemId])
+  @@index([locationId])
+}
+
+model InventorySerial {
+  id             String                   @id @default(uuid())
+  itemId         String
+  variantId      String?
+  serialNumber   String                   @unique
+  locationId     String?
+  status         String                   @default("AVAILABLE")
+  assignedToId   String?
+  assignedToType String?
+  assignedAt     DateTime?
+  item           InventoryItem            @relation(fields: [itemId], references: [id])
+  variant        InventoryItemVariant?    @relation(fields: [variantId], references: [id])
+  location       InventoryLocation?       @relation(fields: [locationId], references: [id])
+  movements      InventoryStockMovement[]
+
+  @@index([itemId])
+  @@index([locationId])
+}
+
+model InventoryRequest {
+  id                String                     @id @default(uuid())
+  reference         String                     @unique
+  status            InventoryRequestStatus     @default(DRAFT)
+  locationId        String?
+  requestedById     String
+  department        String?
+  costCenter        String?
+  neededBy          DateTime?
+  reason            String?
+  linkedTicketId    String?
+  linkedBoardCardId String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  location          InventoryLocation?         @relation(fields: [locationId], references: [id])
+  requestedBy       User                       @relation(fields: [requestedById], references: [id])
+  lines             InventoryRequestLine[]
+  approvals         InventoryRequestApproval[]
+  issueNotes        InventoryIssueNote[]
+
+  @@index([status])
+  @@index([requestedById])
+}
+
+model InventoryRequestLine {
+  id                String                @id @default(uuid())
+  requestId         String
+  itemId            String
+  variantId         String?
+  quantityRequested Int
+  quantityApproved  Int?                  @default(0)
+  quantityFulfilled Int?                  @default(0)
+  notes             String?
+  request           InventoryRequest      @relation(fields: [requestId], references: [id])
+  item              InventoryItem         @relation(fields: [itemId], references: [id])
+  variant           InventoryItemVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([requestId])
+  @@index([itemId])
+}
+
+model InventoryRequestApproval {
+  id           String           @id @default(uuid())
+  requestId    String
+  status       String
+  approvedById String
+  approvedAt   DateTime         @default(now())
+  note         String?
+  request      InventoryRequest @relation(fields: [requestId], references: [id])
+  approvedBy   User             @relation(fields: [approvedById], references: [id])
+
+  @@index([requestId])
+}
+
+model InventoryIssueNote {
+  id         String             @id @default(uuid())
+  requestId  String
+  issuedById String
+  issueType  InventoryIssueType
+  issuedTo   String?
+  note       String?
+  createdAt  DateTime           @default(now())
+  request    InventoryRequest   @relation(fields: [requestId], references: [id])
+  issuedBy   User               @relation(fields: [issuedById], references: [id])
+
+  @@index([requestId])
+}
+
+model InventoryTransfer {
+  id             String                  @id @default(uuid())
+  reference      String                  @unique
+  status         InventoryTransferStatus @default(DRAFT)
+  fromLocationId String
+  toLocationId   String
+  requestedById  String
+  approvedById   String?
+  approvedAt     DateTime?
+  shippedAt      DateTime?
+  receivedAt     DateTime?
+  note           String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  fromLocation   InventoryLocation       @relation("InventoryTransferFrom", fields: [fromLocationId], references: [id])
+  toLocation     InventoryLocation       @relation("InventoryTransferTo", fields: [toLocationId], references: [id])
+  requestedBy    User                    @relation("InventoryTransferRequestedBy", fields: [requestedById], references: [id])
+  approvedBy     User?                   @relation("InventoryTransferApprovedBy", fields: [approvedById], references: [id])
+  lines          InventoryTransferLine[]
+
+  @@index([status])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+}
+
+model InventoryTransferLine {
+  id         String                @id @default(uuid())
+  transferId String
+  itemId     String
+  variantId  String?
+  quantity   Int
+  transfer   InventoryTransfer     @relation(fields: [transferId], references: [id])
+  item       InventoryItem         @relation(fields: [itemId], references: [id])
+  variant    InventoryItemVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([transferId])
+}
+
+model InventoryAdjustment {
+  id           String                    @id @default(uuid())
+  reference    String                    @unique
+  status       InventoryAdjustmentStatus @default(DRAFT)
+  locationId   String
+  reason       String
+  createdById  String
+  approvedById String?
+  approvedAt   DateTime?
+  note         String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  location     InventoryLocation         @relation(fields: [locationId], references: [id])
+  createdBy    User                      @relation("InventoryAdjustmentCreatedBy", fields: [createdById], references: [id])
+  approvedBy   User?                     @relation("InventoryAdjustmentApprovedBy", fields: [approvedById], references: [id])
+  lines        InventoryAdjustmentLine[]
+
+  @@index([status])
+  @@index([locationId])
+}
+
+model InventoryAdjustmentLine {
+  id            String                @id @default(uuid())
+  adjustmentId  String
+  itemId        String
+  variantId     String?
+  quantityDelta Int
+  unitCost      Float?
+  note          String?
+  adjustment    InventoryAdjustment   @relation(fields: [adjustmentId], references: [id])
+  item          InventoryItem         @relation(fields: [itemId], references: [id])
+  variant       InventoryItemVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([adjustmentId])
+}
+
+model InventoryCountSession {
+  id           String               @id @default(uuid())
+  reference    String               @unique
+  status       InventoryCountStatus @default(DRAFT)
+  locationId   String
+  type         String
+  blindCount   Boolean              @default(false)
+  startedAt    DateTime?
+  closedAt     DateTime?
+  createdById  String
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  location     InventoryLocation    @relation(fields: [locationId], references: [id])
+  createdBy    User                 @relation("InventoryCountCreatedBy", fields: [createdById], references: [id])
+  approvedBy   User?                @relation("InventoryCountApprovedBy", fields: [approvedById], references: [id])
+  lines        InventoryCountLine[]
+
+  @@index([status])
+  @@index([locationId])
+}
+
+model InventoryCountLine {
+  id         String                @id @default(uuid())
+  sessionId  String
+  itemId     String
+  variantId  String?
+  systemQty  Int
+  countedQty Int
+  variance   Int
+  note       String?
+  session    InventoryCountSession @relation(fields: [sessionId], references: [id])
+  item       InventoryItem         @relation(fields: [itemId], references: [id])
+  variant    InventoryItemVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([sessionId])
+}
+
+model InventoryAlert {
+  id         String                @id @default(uuid())
+  type       InventoryAlertType
+  status     InventoryAlertStatus  @default(OPEN)
+  itemId     String?
+  variantId  String?
+  locationId String?
+  message    String
+  createdAt  DateTime              @default(now())
+  resolvedAt DateTime?
+  item       InventoryItem?        @relation(fields: [itemId], references: [id])
+  variant    InventoryItemVariant? @relation(fields: [variantId], references: [id])
+  location   InventoryLocation?    @relation(fields: [locationId], references: [id])
+
+  @@index([status])
+  @@index([type])
+}
+
+model InventoryAttachment {
+  id         String         @id @default(uuid())
+  itemId     String?
+  entityType String
+  entityId   String
+  filename   String
+  url        String
+  size       Int?
+  mimeType   String?
+  createdAt  DateTime       @default(now())
+  item       InventoryItem? @relation(fields: [itemId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model InventoryCustomField {
+  id        String                      @id @default(uuid())
+  key       String                      @unique
+  label     String
+  type      String
+  config    Json?
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+  values    InventoryCustomFieldValue[]
+}
+
+model InventoryCustomFieldValue {
+  id      String               @id @default(uuid())
+  itemId  String
+  fieldId String
+  value   Json
+  item    InventoryItem        @relation(fields: [itemId], references: [id])
+  field   InventoryCustomField @relation(fields: [fieldId], references: [id])
+
+  @@unique([itemId, fieldId])
+}
+
+model InventoryAuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  reason    String?
+  ip        String?
+  requestId String?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id])
+}
+
+model Item {
+  id          String        @id @default(uuid())
+  name        String
+  sku         String        @unique
+  description String?
+  createdAt   DateTime      @default(now())
+  movements   StockLedger[]
+}
+
+model StockLocation {
+  id      String        @id @default(uuid())
+  name    String
+  ledgers StockLedger[]
+}
+
+model StockLedger {
+  id         String        @id @default(uuid())
+  itemId     String
+  locationId String
+  quantity   Int
+  reason     String
+  createdAt  DateTime      @default(now())
+  item       Item          @relation(fields: [itemId], references: [id])
+  location   StockLocation @relation(fields: [locationId], references: [id])
+
+  // Index for item movement history
+  @@index([itemId])
+}
+
+model Supplier {
+  id             String                  @id @default(uuid())
+  name           String
+  email          String?
+  phone          String?
+  bankDetails    Json?
+  taxInfo        Json?
+  createdAt      DateTime                @default(now())
+  inventoryLinks InventoryItemSupplier[]
+}
+
+model Student {
+  id        String       @id @default(uuid())
+  name      String
+  grade     String
+  createdAt DateTime     @default(now())
+  invoices  FeeInvoice[]
+}
+
+model FeeInvoice {
+  id               String          @id @default(uuid())
+  studentId        String
+  term             String
+  amount           Float
+  dueDate          DateTime
+  status           String
+  createdAt        DateTime        @default(now())
+  student          Student         @relation(fields: [studentId], references: [id])
+  learnerProfileId String?
+  learnerProfile   LearnerProfile? @relation("LearnerFees", fields: [learnerProfileId], references: [id])
+  payments         FeePayment[]
+
+  @@index([learnerProfileId])
+}
+
+model FeePayment {
+  id        String     @id @default(uuid())
+  invoiceId String
+  amount    Float
+  paidAt    DateTime   @default(now())
+  method    String
+  reference String?
+  invoice   FeeInvoice @relation(fields: [invoiceId], references: [id])
+}
+
+model Appointment {
+  id        String            @id @default(uuid())
+  staffId   String
+  parentId  String
+  learnerId String?
+  startsAt  DateTime
+  endsAt    DateTime
+  location  String?
+  status    AppointmentStatus
+  createdAt DateTime          @default(now())
+  staff     User              @relation("AppointmentStaff", fields: [staffId], references: [id])
+  parent    User              @relation("AppointmentParent", fields: [parentId], references: [id])
+  learner   LearnerProfile?   @relation("LearnerAppointments", fields: [learnerId], references: [id])
+
+  // Index for staff availability queries
+  @@index([staffId])
+  @@index([learnerId])
+}
+
+model CalendarConnection {
+  id           String                   @id @default(uuid())
+  userId       String
+  provider     String
+  accessToken  String
+  refreshToken String?
+  status       CalendarConnectionStatus @default(ACTIVE)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  user         User                     @relation(fields: [userId], references: [id])
+
+  // Index for per-user calendar sync
+  @@index([userId])
+}
+
+model PushSubscription {
+  id       String @id @default(uuid())
+  userId   String
+  endpoint String @unique
+  keys     Json
+  user     User   @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  data      Json?
+  ip        String?
+  requestId String?
+  createdAt DateTime @default(now())
+}
+
+model AcademicGrade {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  code      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model SchoolClass {
+  id           String         @id @default(uuid())
+  tenantId     String
+  gradeId      String
+  name         String
+  code         String
+  academicYear Int
+  room         String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  subjects     ClassSubject[]
+
+  @@unique([tenantId, code, academicYear])
+  @@index([tenantId, gradeId])
+}
+
+model AcademicSubject {
+  id        String         @id @default(uuid())
+  tenantId  String
+  name      String
+  code      String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  classes   ClassSubject[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+}
+
+model ClassSubject {
+  id        String          @id @default(uuid())
+  tenantId  String
+  classId   String
+  subjectId String
+  createdAt DateTime        @default(now())
+  class     SchoolClass     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   AcademicSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, subjectId])
+  @@index([tenantId, classId])
+}
+
+model TeacherClassAssignment {
+  id        String   @id @default(uuid())
+  tenantId  String
+  teacherId String
+  classId   String
+  subject   String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, classId, subject])
+  @@index([tenantId, teacherId])
+  @@index([classId])
+}
+
+model LearnerProfile {
+  id                     String                @id @default(uuid())
+  tenantId               String
+  classId                String?
+  gradeId                String?
+  studentNumber          String                @unique
+  firstName              String
+  lastName               String
+  preferredName          String?
+  dateOfBirth            DateTime?
+  identityNumber         String?
+  gender                 String?
+  email                  String?
+  phone                  String?
+  address                Json?
+  medicalNotes           String?
+  admissionApplicationId String?
+  parentIds              Json?
+  status                 String                @default("ACTIVE")
+  archivedAt             DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  guardians              GuardianStudentLink[]
+  classHistory           StudentClassHistory[]
+  feeInvoices            FeeInvoice[]          @relation("LearnerFees")
+  appointments           Appointment[]         @relation("LearnerAppointments")
+  hostelApplications     HostelApplication[]
+  hostelAllocations      HostelAllocation[]
+  hostelCharges          HostelCharge[]
+
+  @@index([tenantId, classId])
+  @@index([tenantId, gradeId])
+  @@index([tenantId, identityNumber])
+}
+
+model GuardianStudentLink {
+  id                   String         @id @default(uuid())
+  tenantId             String
+  guardianUserId       String
+  learnerId            String
+  relationshipType     String
+  status               String         @default("ACTIVE")
+  isPrimary            Boolean        @default(false)
+  viewFees             Boolean        @default(false)
+  payFees              Boolean        @default(false)
+  viewReports          Boolean        @default(false)
+  viewHomework         Boolean        @default(false)
+  receiveAnnouncements Boolean        @default(false)
+  messageTeachers      Boolean        @default(false)
+  authorisePickup      Boolean        @default(false)
+  submitApplications   Boolean        @default(false)
+  bookAppointments     Boolean        @default(false)
+  viewHostel           Boolean        @default(false)
+  applyHostel          Boolean        @default(false)
+  viewHostelBilling    Boolean        @default(false)
+  submitHostelConcerns Boolean        @default(false)
+  viewHostelMovement   Boolean        @default(false)
+  createdById          String?
+  verifiedById         String?
+  verifiedAt           DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  guardian             User           @relation("GuardianUser", fields: [guardianUserId], references: [id], onDelete: Cascade)
+  learner              LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  createdBy            User?          @relation("GuardianLinkCreatedBy", fields: [createdById], references: [id])
+  verifiedBy           User?          @relation("GuardianLinkVerifiedBy", fields: [verifiedById], references: [id])
+
+  @@unique([guardianUserId, learnerId, relationshipType])
+  @@index([tenantId, guardianUserId, status])
+  @@index([learnerId])
+}
+
+model StudentClassHistory {
+  id          String         @id @default(uuid())
+  tenantId    String
+  learnerId   String
+  fromClassId String?
+  toClassId   String?
+  fromGradeId String?
+  toGradeId   String?
+  reason      String
+  changedById String
+  changedAt   DateTime       @default(now())
+  learner     LearnerProfile @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, learnerId, changedAt])
+}
+
+model HostelBuilding {
+  id           String              @id @default(uuid())
+  tenantId     String
+  name         String
+  code         String
+  genderPolicy String              @default("MIXED")
+  address      String?
+  wardenId     String?
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  blocks       HostelBlock[]
+  applications HostelApplication[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+}
+
+model HostelBlock {
+  id            String         @id @default(uuid())
+  tenantId      String
+  buildingId    String
+  name          String
+  code          String
+  houseParentId String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  building      HostelBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms         HostelRoom[]
+
+  @@unique([buildingId, code])
+  @@index([tenantId, buildingId])
+}
+
+model HostelRoom {
+  id           String      @id @default(uuid())
+  tenantId     String
+  blockId      String
+  roomNumber   String
+  name         String?
+  floor        String?
+  roomType     String      @default("STANDARD")
+  genderPolicy String      @default("MIXED")
+  gradeGroup   String?
+  capacity     Int
+  monthlyFee   Float       @default(0)
+  status       String      @default("ACTIVE")
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  block        HostelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  beds         HostelBed[]
+
+  @@unique([blockId, roomNumber])
+  @@index([tenantId, status])
+}
+
+model HostelBed {
+  id          String             @id @default(uuid())
+  tenantId    String
+  roomId      String
+  label       String
+  status      String             @default("AVAILABLE")
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  room        HostelRoom         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  allocations HostelAllocation[]
+
+  @@unique([roomId, label])
+  @@index([tenantId, status])
+}
+
+model HostelApplication {
+  id                  String             @id @default(uuid())
+  tenantId            String
+  learnerId           String
+  parentUserId        String?
+  academicYear        Int
+  term                String?
+  preferredBuildingId String?
+  reason              String?
+  medicalRequirements String?
+  dietaryRequirements String?
+  status              String             @default("SUBMITTED")
+  priority            Int                @default(0)
+  decisionNotes       String?
+  decidedById         String?
+  submittedAt         DateTime           @default(now())
+  decidedAt           DateTime?
+  updatedAt           DateTime           @updatedAt
+  learner             LearnerProfile     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  preferredBuilding   HostelBuilding?    @relation(fields: [preferredBuildingId], references: [id])
+  allocations         HostelAllocation[]
+
+  @@index([tenantId, status, submittedAt])
+  @@index([learnerId, academicYear])
+}
+
+model HostelAllocation {
+  id              String             @id @default(uuid())
+  tenantId        String
+  learnerId       String
+  bedId           String
+  applicationId   String?
+  status          String             @default("RESERVED")
+  startDate       DateTime
+  expectedEndDate DateTime?
+  checkedInAt     DateTime?
+  checkedInById   String?
+  checkedOutAt    DateTime?
+  checkedOutById  String?
+  checkoutReason  String?
+  createdById     String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  learner         LearnerProfile     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  bed             HostelBed          @relation(fields: [bedId], references: [id])
+  application     HostelApplication? @relation(fields: [applicationId], references: [id])
+  charges         HostelCharge[]
+
+  @@index([tenantId, status])
+  @@index([learnerId, status])
+  @@index([bedId, status])
+}
+
+model HostelRollCall {
+  id          String                @id @default(uuid())
+  tenantId    String
+  buildingId  String?
+  rollDate    DateTime
+  session     String
+  status      String                @default("DRAFT")
+  createdById String
+  submittedAt DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  entries     HostelRollCallEntry[]
+
+  @@unique([tenantId, buildingId, rollDate, session])
+  @@index([tenantId, rollDate])
+}
+
+model HostelRollCallEntry {
+  id           String         @id @default(uuid())
+  rollCallId   String
+  learnerId    String
+  status       String
+  note         String?
+  notifyParent Boolean        @default(false)
+  rollCall     HostelRollCall @relation(fields: [rollCallId], references: [id], onDelete: Cascade)
+
+  @@unique([rollCallId, learnerId])
+}
+
+model HostelMealRegister {
+  id           String            @id @default(uuid())
+  tenantId     String
+  buildingId   String?
+  mealDate     DateTime
+  mealType     String
+  plannedCount Int               @default(0)
+  servedCount  Int               @default(0)
+  notes        String?
+  createdById  String
+  createdAt    DateTime          @default(now())
+  entries      HostelMealEntry[]
+
+  @@unique([tenantId, buildingId, mealDate, mealType])
+  @@index([tenantId, mealDate])
+}
+
+model HostelMealEntry {
+  id          String             @id @default(uuid())
+  registerId  String
+  learnerId   String
+  attended    Boolean            @default(true)
+  dietaryNote String?
+  register    HostelMealRegister @relation(fields: [registerId], references: [id], onDelete: Cascade)
+
+  @@unique([registerId, learnerId])
+}
+
+model HostelIncident {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  learnerId          String?
+  buildingId         String?
+  roomId             String?
+  category           String
+  severity           String    @default("MEDIUM")
+  title              String
+  description        String
+  occurredAt         DateTime
+  status             String    @default("OPEN")
+  actionTaken        String?
+  reportedById       String
+  guardianNotifiedAt DateTime?
+  resolvedAt         DateTime?
+  resolvedById       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, status, occurredAt])
+  @@index([learnerId])
+}
+
+model HostelMaintenanceRequest {
+  id            String    @id @default(uuid())
+  tenantId      String
+  buildingId    String?
+  blockId       String?
+  roomId        String?
+  bedId         String?
+  learnerId     String?
+  submittedById String
+  source        String    @default("STAFF")
+  category      String
+  priority      String    @default("MEDIUM")
+  title         String
+  description   String
+  status        String    @default("OPEN")
+  assignedToId  String?
+  resolution    String?
+  cost          Float?
+  attachments   Json?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId, status, priority])
+  @@index([learnerId])
+}
+
+model HostelVisitorLog {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  learnerId           String
+  visitorName         String
+  identityNumber      String?
+  phone               String?
+  relationship        String?
+  purpose             String
+  vehicleRegistration String?
+  checkedInAt         DateTime  @default(now())
+  checkedInById       String
+  expectedCheckoutAt  DateTime?
+  checkedOutAt        DateTime?
+  checkedOutById      String?
+  status              String    @default("CHECKED_IN")
+  createdAt           DateTime  @default(now())
+
+  @@index([tenantId, status, checkedInAt])
+  @@index([learnerId])
+}
+
+model HostelCharge {
+  id                String            @id @default(uuid())
+  tenantId          String
+  learnerId         String
+  allocationId      String?
+  description       String
+  billingPeriod     String?
+  amount            Float
+  paidAmount        Float             @default(0)
+  dueDate           DateTime
+  status            String            @default("DUE")
+  externalInvoiceId String?
+  createdById       String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  learner           LearnerProfile    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  allocation        HostelAllocation? @relation(fields: [allocationId], references: [id])
+
+  @@index([tenantId, status, dueDate])
+  @@index([learnerId])
+}
+
+model HostelNotice {
+  id               String   @id @default(uuid())
+  tenantId         String
+  buildingId       String?
+  learnerId        String?
+  title            String
+  message          String
+  channels         Json
+  visibleToParents Boolean  @default(true)
+  createdById      String
+  publishedAt      DateTime @default(now())
+
+  @@index([tenantId, publishedAt])
+  @@index([learnerId])
+}
+
+model IdentityProviderConnection {
+  id                   String                     @id @default(uuid())
+  tenantId             String
+  provider             String
+  displayName          String
+  tenantDomain         String?
+  externalTenantId     String?
+  clientId             String?
+  encryptedCredentials Json?
+  scopes               Json?
+  settings             Json?
+  status               String                     @default("DISCONNECTED")
+  tokenHealth          String                     @default("NOT_CONNECTED")
+  connectedById        String?
+  connectedAt          DateTime?
+  lastSyncAt           DateTime?
+  lastError            String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  connectedBy          User?                      @relation("IdentityProviderConnectedBy", fields: [connectedById], references: [id])
+  roleMappings         ExternalGroupRoleMapping[]
+  syncLogs             IdentitySyncLog[]
+
+  @@unique([tenantId, provider])
+  @@index([tenantId, status])
+}
+
+model ExternalGroupRoleMapping {
+  id                String                     @id @default(uuid())
+  connectionId      String
+  externalGroupId   String
+  externalGroupName String
+  roleId            String
+  gradeId           String?
+  classId           String?
+  subject           String?
+  department        String?
+  autoDisable       Boolean                    @default(true)
+  manualOverride    Boolean                    @default(false)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  connection        IdentityProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalGroupId])
+}
+
+model IdentitySyncLog {
+  id           String                     @id @default(uuid())
+  tenantId     String
+  connectionId String
+  operation    String
+  status       String
+  summary      Json?
+  error        String?
+  createdAt    DateTime                   @default(now())
+  connection   IdentityProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, connectionId, createdAt])
+}
+
+model ExternalCalendarEvent {
+  id              String    @id @default(uuid())
+  tenantId        String
+  provider        String
+  userId          String?
+  sourceType      String
+  sourceId        String
+  externalEventId String?
+  title           String
+  description     String?
+  startsAt        DateTime
+  endsAt          DateTime
+  location        String?
+  attendees       Json?
+  syncStatus      String    @default("PENDING")
+  lastError       String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([tenantId, provider, sourceType, sourceId])
+  @@index([tenantId, syncStatus])
+}
+
+model TeacherTimetableEntry {
+  id        String   @id @default(uuid())
+  tenantId  String
+  teacherId String
+  classId   String
+  subject   String
+  dayOfWeek Int
+  startsAt  String
+  endsAt    String
+  room      String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, teacherId, dayOfWeek])
+  @@index([classId])
+}
+
+model TeacherWorkItem {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  teacherId          String
+  classId            String?
+  type               String
+  title              String
+  instructions       String?
+  dueAt              DateTime?
+  status             String    @default("DRAFT")
+  visibleToParents   Boolean   @default(false)
+  attachments        Json?
+  curriculumOutcomes Json?
+  linkedWorkItemId   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, teacherId, type])
+  @@index([classId, dueAt])
+}
+
+model AttendanceRegister {
+  id           String            @id @default(uuid())
+  tenantId     String
+  classId      String
+  teacherId    String
+  registerDate DateTime
+  status       String            @default("DRAFT")
+  submittedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  entries      AttendanceEntry[]
+
+  @@unique([classId, registerDate])
+  @@index([tenantId, teacherId])
+}
+
+model AttendanceEntry {
+  id           String             @id @default(uuid())
+  registerId   String
+  learnerId    String
+  status       String
+  note         String?
+  notifyParent Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  register     AttendanceRegister @relation(fields: [registerId], references: [id], onDelete: Cascade)
+
+  @@unique([registerId, learnerId])
+  @@index([learnerId])
+}
+
+model ParentTeacherQuery {
+  id          String    @id @default(uuid())
+  tenantId    String
+  classId     String
+  learnerId   String
+  parentId    String
+  teacherId   String
+  subject     String
+  message     String
+  response    String?
+  status      String    @default("OPEN")
+  escalatedAt DateTime?
+  resolvedAt  DateTime?
+  attachments Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId, teacherId, status])
+  @@index([classId, learnerId])
+}
+
+model TeacherAssistantAssessment {
+  id             String                     @id @default(uuid())
+  tenantId       String
+  teacherId      String
+  subject        String
+  pluginKey      String
+  gradeId        String?
+  classIds       Json
+  name           String
+  assessmentType String
+  totalMarks     Float
+  dueAt          DateTime?
+  status         String                     @default("DRAFT")
+  uploads        Json?
+  settings       Json?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  questions      TeacherAssistantQuestion[]
+  scripts        TeacherAssistantScript[]
+  jobs           TeacherAssistantJob[]
+  auditEvents    TeacherAssistantAudit[]
+
+  @@index([tenantId, teacherId, status])
+}
+
+model TeacherAssistantQuestion {
+  id                 String                           @id @default(uuid())
+  assessmentId       String
+  questionNumber     String
+  questionType       String
+  expectedAnswers    Json
+  alternativeAnswers Json?
+  marks              Float
+  tolerance          Float?
+  decimalPrecision   Int?
+  requiredUnit       String?
+  caseSensitive      Boolean                          @default(false)
+  ignoreWhitespace   Boolean                          @default(true)
+  partialMarkRules   Json?
+  sortOrder          Int                              @default(0)
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
+  assessment         TeacherAssistantAssessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  results            TeacherAssistantQuestionResult[]
+
+  @@unique([assessmentId, questionNumber])
+  @@index([assessmentId, sortOrder])
+}
+
+model TeacherAssistantScript {
+  id                    String                           @id @default(uuid())
+  assessmentId          String
+  learnerId             String?
+  detectedStudentNumber String?
+  detectedStudentName   String?
+  originalFiles         Json
+  extractedText         String?
+  editableText          String?
+  detectedAnswers       Json?
+  status                String                           @default("QUEUED")
+  ocrConfidence         Float?
+  markingConfidence     Float?
+  suggestedTotal        Float?
+  finalTotal            Float?
+  needsReview           Boolean                          @default(false)
+  flags                 Json?
+  processingStartedAt   DateTime?
+  processingCompletedAt DateTime?
+  reviewedAt            DateTime?
+  approvedAt            DateTime?
+  publishedAt           DateTime?
+  createdAt             DateTime                         @default(now())
+  updatedAt             DateTime                         @updatedAt
+  assessment            TeacherAssistantAssessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  results               TeacherAssistantQuestionResult[]
+  jobs                  TeacherAssistantJob[]
+  auditEvents           TeacherAssistantAudit[]
+
+  @@index([assessmentId, status])
+  @@index([learnerId, publishedAt])
+}
+
+model TeacherAssistantQuestionResult {
+  id                String                   @id @default(uuid())
+  scriptId          String
+  questionId        String
+  questionNumber    String
+  detectedAnswer    String?
+  expectedAnswer    Json
+  matchingRule      String
+  suggestedMarks    Float
+  finalMarks        Float
+  ocrConfidence     Float
+  markingConfidence Float
+  overridden        Boolean                  @default(false)
+  teacherNote       String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  script            TeacherAssistantScript   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  question          TeacherAssistantQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([scriptId, questionId])
+  @@index([scriptId, questionNumber])
+}
+
+model TeacherAssistantJob {
+  id           String                     @id @default(uuid())
+  tenantId     String
+  assessmentId String
+  scriptId     String?
+  type         String
+  status       String                     @default("QUEUED")
+  attempts     Int                        @default(0)
+  error        String?
+  lockedAt     DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  assessment   TeacherAssistantAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  script       TeacherAssistantScript?    @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+}
+
+model TeacherAssistantAudit {
+  id           String                     @id @default(uuid())
+  tenantId     String
+  assessmentId String
+  scriptId     String?
+  actorId      String?
+  action       String
+  data         Json?
+  createdAt    DateTime                   @default(now())
+  assessment   TeacherAssistantAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  script       TeacherAssistantScript?    @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId, scriptId, createdAt])
+}
+
+model ApplicationForm {
+  id                  String                   @id @default(uuid())
+  tenantId            String
+  name                String
+  slug                String
+  status              String                   @default("draft")
+  currentVersionId    String?
+  admissionsOpenState String                   @default("open")
+  opensAt             DateTime?
+  closesAt            DateTime?
+  closedMessage       String?
+  openingMessage      String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  versions            ApplicationFormVersion[]
+  submissions         ApplicationSubmission[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model ApplicationFormVersion {
+  id            String                  @id @default(uuid())
+  tenantId      String
+  formId        String
+  versionNumber Int
+  schemaJson    Json
+  isPublished   Boolean                 @default(false)
+  publishedAt   DateTime?
+  createdById   String?
+  createdAt     DateTime                @default(now())
+  form          ApplicationForm         @relation(fields: [formId], references: [id])
+  createdBy     User?                   @relation(fields: [createdById], references: [id])
+  submissions   ApplicationSubmission[]
+
+  @@unique([formId, versionNumber])
+  @@index([tenantId])
+}
+
+model ApplicationSubmission {
+  id                  String                      @id @default(uuid())
+  tenantId            String
+  formId              String
+  formVersionId       String
+  submissionReference String
+  submissionChannel   String
+  applicantName       String?
+  guardianName        String?
+  guardianEmail       String?
+  guardianPhone       String?
+  payloadJson         Json
+  status              String                      @default("submitted")
+  submittedAt         DateTime                    @default(now())
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  form                ApplicationForm             @relation(fields: [formId], references: [id])
+  formVersion         ApplicationFormVersion      @relation(fields: [formVersionId], references: [id])
+  files               ApplicationSubmissionFile[]
+
+  @@unique([submissionReference])
+  @@index([tenantId])
+}
+
+model ApplicationSubmissionFile {
+  id               String                @id @default(uuid())
+  tenantId         String
+  submissionId     String
+  fieldKey         String
+  originalFilename String
+  storagePath      String
+  mimeType         String
+  fileSize         Int
+  createdAt        DateTime              @default(now())
+  submission       ApplicationSubmission @relation(fields: [submissionId], references: [id])
+
+  @@index([submissionId])
+  @@index([tenantId])
+}

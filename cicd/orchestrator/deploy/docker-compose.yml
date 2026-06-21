@@ -1,0 +1,22 @@
+services:
+  api:
+    image: ${API_IMAGE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+
+  worker:
+    image: ${WORKER_IMAGE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"

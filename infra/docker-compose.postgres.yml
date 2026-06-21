@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: popin
+      POSTGRES_PASSWORD: popin
+      POSTGRES_DB: popin_lms
+    ports:
+      - "5432:5432"
+    volumes:
+      - popin_pg:/var/lib/postgresql/data
+
+volumes:
+  popin_pg:

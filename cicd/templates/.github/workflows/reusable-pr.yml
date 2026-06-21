@@ -1,0 +1,75 @@
+name: Reusable PR Security
+
+on:
+  workflow_call:
+    inputs:
+      install_cmd:
+        type: string
+        default: "npm ci"
+      lint_cmd:
+        type: string
+        default: "npm run lint"
+      test_cmd:
+        type: string
+        default: "npm test"
+      trivy_fs:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  pr-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install
+        run: ${{ inputs.install_cmd }}
+
+      - name: Lint
+        run: ${{ inputs.lint_cmd }}
+
+      - name: Test
+        run: ${{ inputs.test_cmd }}
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: "detect --report-format json --report-path gitleaks-report.json"
+
+      - name: Upload Gitleaks Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+
+      - name: Trivy FS Scan
+        if: ${{ inputs.trivy_fs }}
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: filesystem
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1
+          format: table
+          output: trivy-fs-report.txt
+
+      - name: Upload Trivy FS Report
+        if: ${{ inputs.trivy_fs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-report
+          path: trivy-fs-report.txt

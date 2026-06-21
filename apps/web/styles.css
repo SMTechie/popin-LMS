@@ -1,0 +1,118 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 33%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 20% 96%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+    --shadow-2xs: 0 1px 2px 0 hsl(0 0% 0% / 0.04);
+    --shadow-xs: 0 1px 3px 0 hsl(0 0% 0% / 0.06);
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.08), 0 1px 2px -1px hsl(0 0% 0% / 0.06);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.08), 0 2px 4px -2px hsl(0 0% 0% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.08), 0 4px 6px -4px hsl(0 0% 0% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.08), 0 8px 10px -6px hsl(0 0% 0% / 0.06);
+    --shadow-2xl: 0 25px 50px -12px hsl(0 0% 0% / 0.18);
+
+    --brand-primary: 30 58 138;
+    --brand-accent: 59 130 246;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .bg-brand {
+    background-color: rgb(var(--brand-accent));
+  }
+  .bg-brand-primary {
+    background-color: rgb(var(--brand-primary));
+  }
+  .text-brand {
+    color: rgb(var(--brand-accent));
+  }
+  .text-brand-primary {
+    color: rgb(var(--brand-primary));
+  }
+  .border-brand {
+    border-color: rgb(var(--brand-accent));
+  }
+  .ring-brand {
+    --tw-ring-color: rgb(var(--brand-accent));
+  }
+  .shadow-brand {
+    box-shadow: 0 10px 20px rgba(var(--brand-accent), 0.25);
+  }
+  .bg-brand-soft {
+    background-color: rgba(var(--brand-accent), 0.12);
+  }
+  .text-brand-soft {
+    color: rgba(var(--brand-accent), 0.9);
+  }
+
+  /* Map common blue utilities to brand colors */
+  .bg-blue-600 {
+    background-color: rgb(var(--brand-accent)) !important;
+  }
+  .bg-blue-700 {
+    background-color: rgb(var(--brand-accent)) !important;
+  }
+  .bg-blue-500 {
+    background-color: rgb(var(--brand-accent)) !important;
+  }
+  .bg-blue-50 {
+    background-color: rgba(var(--brand-accent), 0.12) !important;
+  }
+  .text-blue-600 {
+    color: rgb(var(--brand-accent)) !important;
+  }
+  .border-blue-500 {
+    border-color: rgb(var(--brand-accent)) !important;
+  }
+  .ring-blue-500\/30 {
+    --tw-ring-color: rgb(var(--brand-accent) / 0.3) !important;
+  }
+  .shadow-blue-600\/20 {
+    box-shadow: 0 10px 20px rgba(var(--brand-accent), 0.2) !important;
+  }
+
+  .font-heading {
+    font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, sans-serif;
+  }
+
+  .hover\:bg-white\/8:hover {
+    background-color: rgb(255 255 255 / 0.08);
+  }
+}

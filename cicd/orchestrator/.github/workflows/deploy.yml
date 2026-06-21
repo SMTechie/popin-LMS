@@ -1,0 +1,52 @@
+name: Production Deploy
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, livevm, docker, deploy]
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Manifest
+        run: ./scripts/validate-manifest.sh release-manifest.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Deploy
+        env:
+          GHCR_ORG: ${{ github.repository_owner }}
+        run: ./scripts/deploy.sh release-manifest.json
+
+      - name: Smoke Tests
+        env:
+          SMOKE_URLS: "http://localhost:4000/health,http://localhost:3000"
+        run: ./scripts/smoke-test.sh
+
+      - name: Rollback on Failure
+        if: failure()
+        env:
+          GHCR_ORG: ${{ github.repository_owner }}
+        run: ./scripts/rollback.sh

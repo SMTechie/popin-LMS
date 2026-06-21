@@ -1,0 +1,180 @@
+name: Reusable Build and Publish
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        type: string
+        required: true
+      dockerfile:
+        type: string
+        default: Dockerfile
+      context:
+        type: string
+        default: .
+    outputs:
+      sha_tag:
+        value: ${{ jobs.build.outputs.sha_tag }}
+      semver_tag:
+        value: ${{ jobs.build.outputs.semver_tag }}
+      image_digest:
+        value: ${{ jobs.build.outputs.image_digest }}
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  security-events: write
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, buildvm, docker, build]
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+      semver_tag: ${{ steps.meta.outputs.semver_tag }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version
+        id: meta
+        shell: bash
+        run: |
+          git fetch --tags --force
+          latest_tag=$(git tag --sort=-v:refname | head -n1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.1.0"
+          fi
+
+          range="$latest_tag..HEAD"
+          if [ "$latest_tag" = "v0.1.0" ]; then
+            range="HEAD"
+          fi
+
+          log=$(git log $range --pretty=%s%n%b)
+          bump="patch"
+          echo "$log" | grep -qi "BREAKING" && bump="major"
+          if [ "$bump" = "patch" ]; then
+            echo "$log" | grep -q "^feat:" && bump="minor" || true
+          fi
+          if [ "$bump" = "patch" ]; then
+            echo "$log" | grep -q "^fix:" && bump="patch" || true
+          fi
+
+          ver=${latest_tag#v}
+          major=${ver%%.*}
+          rest=${ver#*.}
+          minor=${rest%%.*}
+          patch=${rest#*.}
+
+          if [ "$bump" = "major" ]; then
+            major=$((major+1)); minor=0; patch=0
+          elif [ "$bump" = "minor" ]; then
+            minor=$((minor+1)); patch=0
+          else
+            patch=$((patch+1))
+          fi
+
+          semver="v${major}.${minor}.${patch}"
+          sha_tag="sha-$(git rev-parse --short=7 HEAD)"
+
+          if git rev-parse "$semver" >/dev/null 2>&1; then
+            echo "Tag $semver already exists"
+          else
+            git tag "$semver"
+            git push origin "$semver"
+          fi
+
+          echo "sha_tag=$sha_tag" >> $GITHUB_OUTPUT
+          echo "semver_tag=$semver" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.sha_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.semver_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:latest
+
+      - name: Trivy Report (table)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.sha_tag }}
+          format: table
+          output: trivy-report.txt
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Trivy Report (SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.sha_tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Upload Trivy Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy-report.txt
+
+      - name: Upload Trivy SARIF
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-sarif
+          path: trivy-results.sarif
+
+      - name: Upload Trivy SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        if: always()
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.sha_tag }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      - name: Trivy Gate
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ steps.meta.outputs.sha_tag }}
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign Image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}@${{ steps.build.outputs.digest }}

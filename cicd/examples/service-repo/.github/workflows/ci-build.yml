@@ -1,0 +1,15 @@
+name: Build and Publish
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: popin-org/cicd-templates/.github/workflows/reusable-build.yml@main
+    with:
+      image_name: api
+      dockerfile: Dockerfile
+      context: .
