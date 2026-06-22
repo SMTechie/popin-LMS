@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Save, Plus, RefreshCw, KeyRound, ShieldCheck, ExternalLink, Send } from 'lucide-react';
+import { Save, RefreshCw, KeyRound, ShieldCheck, ExternalLink, Send } from 'lucide-react';
 import { notifyAction } from '../lib/notify';
 import { useBranding } from '../settings/BrandingContext';
 import { apiRequest } from '../lib/api';

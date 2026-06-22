@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { apiRequest, tokenStorage } from "../lib/api";
 import { toRgbChannels } from "../lib/brand";
+import { apiRequest } from "../lib/api";
 
 export type BrandingSettings = {
   schoolName?: string;
@@ -21,10 +22,20 @@ type BrandingContextValue = {
 };
 
 const BRANDING_KEY = "popin_branding";
+const DEFAULT_BRANDING: BrandingSettings = {
+  schoolName: "POPIN Demo School",
+  schoolMotto: "Connected school operations",
+  primaryColor: "#1f2937",
+  accentColor: "#2563eb",
+  email: "admin@school.co.za",
+  phone: "+27 11 000 0000",
+  website: "https://school.co.za"
+};
 
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 function readLocal(): BrandingSettings | null {
+  if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(BRANDING_KEY);
   if (!raw) return null;
   try {
@@ -35,7 +46,20 @@ function readLocal(): BrandingSettings | null {
 }
 
 function writeLocal(value: BrandingSettings) {
+  if (typeof window === "undefined") return;
   localStorage.setItem(BRANDING_KEY, JSON.stringify(value));
+}
+
+function applyBrandingVars(value: BrandingSettings) {
+  const root = document.documentElement;
+  if (value.primaryColor) {
+    const rgb = toRgbChannels(value.primaryColor);
+    if (rgb) root.style.setProperty("--brand-primary", rgb);
+  }
+  if (value.accentColor) {
+    const rgb = toRgbChannels(value.accentColor);
+    if (rgb) root.style.setProperty("--brand-accent", rgb);
+  }
 }
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
@@ -43,25 +67,15 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
-    const token = tokenStorage.get();
-    if (!token) {
-      setBranding(null);
-      setLoading(false);
-      return;
-    }
-
-    const local = readLocal();
-    if (local) setBranding(local);
-
     try {
-      const res = await apiRequest<{ key: string; value: BrandingSettings | null }>("/settings/branding");
-      const value = res?.value || null;
-      if (value) {
-        setBranding(value);
-        writeLocal(value);
-      }
+      const value = await apiRequest<BrandingSettings>("/public/branding", { auth: false });
+      setBranding(value);
+      writeLocal(value);
+      applyBrandingVars(value);
     } catch {
-      // ignore fetch errors; local cache still used
+      const value = readLocal() || DEFAULT_BRANDING;
+      setBranding(value);
+      applyBrandingVars(value);
     } finally {
       setLoading(false);
     }
@@ -75,27 +89,17 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     const onStorage = (event: StorageEvent) => {
       if (event.key === BRANDING_KEY && event.newValue) {
         try {
-          setBranding(JSON.parse(event.newValue));
+          const value = JSON.parse(event.newValue) as BrandingSettings;
+          setBranding(value);
+          applyBrandingVars(value);
         } catch {
-          // ignore
+          // ignore malformed local data
         }
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
-
-  const applyBrandingVars = (value: BrandingSettings) => {
-    const root = document.documentElement;
-    if (value.primaryColor) {
-      const rgb = toRgbChannels(value.primaryColor);
-      if (rgb) root.style.setProperty("--brand-primary", rgb);
-    }
-    if (value.accentColor) {
-      const rgb = toRgbChannels(value.accentColor);
-      if (rgb) root.style.setProperty("--brand-accent", rgb);
-    }
-  };
 
   const setBrandingLocal = (value: BrandingSettings) => {
     setBranding(value);
@@ -107,10 +111,6 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     () => ({ branding, loading, refresh, setBrandingLocal }),
     [branding, loading]
   );
-
-  useEffect(() => {
-    if (branding) applyBrandingVars(branding);
-  }, [branding]);
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }

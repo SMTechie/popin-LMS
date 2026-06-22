@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest, tokenStorage } from "../lib/api";
 
 interface AuthContextValue {
@@ -22,30 +23,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const data = await apiRequest<{ accessToken: string }>("/auth/login", {
+  const login = useCallback(async (email: string, password: string) => {
+    if (!email || !password) throw new Error("Enter an email and password.");
+    const response = await apiRequest<{ token: string }>("/auth/login", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ email, password })
     });
-    tokenStorage.set(data.accessToken);
-    setToken(data.accessToken);
-  };
+    tokenStorage.set(response.token);
+    setToken(response.token);
+  }, []);
 
-  const signup = async (email: string, password: string, name?: string) => {
-    const data = await apiRequest<{ accessToken: string }>("/auth/signup", {
+  const signup = useCallback(async (email: string, password: string, name?: string) => {
+    if (!email || !password || !name) throw new Error("Enter your name, email and password.");
+    const response = await apiRequest<{ token: string }>("/auth/signup", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ email, password, name })
     });
-    tokenStorage.set(data.accessToken);
-    setToken(data.accessToken);
-  };
+    tokenStorage.set(response.token);
+    setToken(response.token);
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     tokenStorage.clear();
     setToken(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signup,
       logout
     }),
-    [token, loading]
+    [token, loading, login, signup, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

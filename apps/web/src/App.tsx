@@ -1,34 +1,36 @@
+'use client';
+
 import React, { Suspense, lazy } from 'react';
 import '@radix-ui/themes/styles.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-import Home from './pages/Home';
-import NotFound from './pages/NotFound';
-import Login from './pages/Login';
+import Home from './views/Home';
+import NotFound from './views/NotFound';
+import Login from './views/Login';
 import RequireAuth from './auth/RequireAuth';
 import { AuthProvider } from './auth/AuthContext';
 import { BrandingProvider } from './settings/BrandingContext';
 
-const Boards = lazy(() => import('./pages/Boards'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const Store = lazy(() => import('./pages/Store'));
-const ParentPortal = lazy(() => import('./pages/ParentPortal'));
-const TeacherPortal = lazy(() => import('./pages/TeacherPortal'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Admissions = lazy(() => import('./pages/Admissions'));
-const ApplicationFormBuilder = lazy(() => import('./pages/ApplicationFormBuilder'));
-const ApplicationsPublic = lazy(() => import('./pages/ApplicationsPublic'));
-const Tickets = lazy(() => import('./pages/Tickets'));
-const Inventory = lazy(() => import('./pages/Inventory'));
-const Requisitions = lazy(() => import('./pages/Requisitions'));
-const RequisitionDetail = lazy(() => import('./pages/RequisitionDetail'));
-const RequisitionCreate = lazy(() => import('./pages/RequisitionCreate'));
-const SupplyChain = lazy(() => import('./pages/SupplyChain'));
-const Students = lazy(() => import('./pages/Students'));
-const IdentityIntegrations = lazy(() => import('./pages/IdentityIntegrations'));
-const Hostel = lazy(() => import('./pages/Hostel'));
+const Boards = lazy(() => import('./views/Boards'));
+const Analytics = lazy(() => import('./views/Analytics'));
+const Store = lazy(() => import('./views/Store'));
+const ParentPortal = lazy(() => import('./views/ParentPortal'));
+const TeacherPortal = lazy(() => import('./views/TeacherPortal'));
+const Settings = lazy(() => import('./views/Settings'));
+const Admissions = lazy(() => import('./views/Admissions'));
+const ApplicationFormBuilder = lazy(() => import('./views/ApplicationFormBuilder'));
+const ApplicationsPublic = lazy(() => import('./views/ApplicationsPublic'));
+const Tickets = lazy(() => import('./views/Tickets'));
+const Inventory = lazy(() => import('./views/Inventory'));
+const Requisitions = lazy(() => import('./views/Requisitions'));
+const RequisitionDetail = lazy(() => import('./views/RequisitionDetail'));
+const RequisitionCreate = lazy(() => import('./views/RequisitionCreate'));
+const SupplyChain = lazy(() => import('./views/SupplyChain'));
+const Students = lazy(() => import('./views/Students'));
+const IdentityIntegrations = lazy(() => import('./views/IdentityIntegrations'));
+const Hostel = lazy(() => import('./views/Hostel'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen bg-gray-50">

@@ -2,14 +2,16 @@
 
 interface ModalProps {
   title: string;
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
 }
 
-export default function Modal({ title, isOpen, onClose, children, wide = false }: ModalProps) {
-  if (!isOpen) return null;
+export default function Modal({ title, isOpen, open, onClose, children, wide = false }: ModalProps) {
+  const visible = open ?? isOpen;
+  if (!visible) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

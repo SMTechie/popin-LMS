@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageSquare, Paperclip, Calendar, Tag, User, Clock, Send } from 'lucide-react';
+import { X, Paperclip, Calendar, Tag, User, Clock, Send } from 'lucide-react';
 
 interface Card {
   id: string;

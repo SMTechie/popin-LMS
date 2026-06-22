@@ -1,16 +1,13 @@
-.PHONY: dev-up dev-down migrate seed test
+.PHONY: dev build lint typecheck
 
-dev-up:
-	docker compose -f infra/docker-compose.dev.yml up -d
+dev:
+	npm run dev
 
-dev-down:
-	docker compose -f infra/docker-compose.dev.yml down
+build:
+	npm run build
 
-migrate:
-	npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+lint:
+	npm run lint
 
-seed:
-	npm --workspace apps/api run prisma:seed
-
-test:
-	npm test
+typecheck:
+	npm run typecheck
