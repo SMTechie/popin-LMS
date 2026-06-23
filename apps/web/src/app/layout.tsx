@@ -4,8 +4,8 @@ import "react-toastify/dist/ReactToastify.css";
 import "../../styles.css";
 
 export const metadata: Metadata = {
-  title: "POPIN LMS",
-  description: "School operations workspace powered by React, Next.js and Neon."
+  title: "School Operations Workspace",
+  description: "School operations workspace for admissions, store, inventory and communication."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

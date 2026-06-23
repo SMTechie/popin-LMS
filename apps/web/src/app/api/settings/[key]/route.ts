@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromHeader } from "@/src/server/auth";
 import { appendAuditLog, getSetting, putSetting } from "@/src/server/settings";
+import { fallbackBranding } from "@/src/server/branding";
 
 export async function GET(
   request: NextRequest,
@@ -34,6 +35,36 @@ export async function PUT(
 
   const payload = await request.json();
   const setting = await putSetting(key, payload);
+  const schoolName =
+    key === "branding" ? payload.schoolName :
+    key === "school-profile" ? payload.schoolName :
+    undefined;
+
+  if (typeof schoolName === "string" && schoolName.trim()) {
+    const [branding, schoolProfile, site] = await Promise.all([
+      getSetting("branding", fallbackBranding),
+      getSetting("school-profile", {} as Record<string, unknown>),
+      getSetting("site", {} as Record<string, unknown>)
+    ]);
+
+    const nextSchoolName = schoolName.trim();
+    await Promise.all([
+      putSetting("branding", {
+        ...branding,
+        ...(key === "branding" ? payload : {}),
+        schoolName: nextSchoolName
+      }),
+      putSetting("school-profile", {
+        ...schoolProfile,
+        ...(key === "school-profile" ? payload : {}),
+        schoolName: nextSchoolName
+      }),
+      putSetting("site", {
+        ...site,
+        heroTitle: nextSchoolName
+      })
+    ]);
+  }
 
   await appendAuditLog({
     action: "UPSERT",

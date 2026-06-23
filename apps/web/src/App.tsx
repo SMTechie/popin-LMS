@@ -12,6 +12,7 @@ import Login from './views/Login';
 import RequireAuth from './auth/RequireAuth';
 import { AuthProvider } from './auth/AuthContext';
 import { BrandingProvider } from './settings/BrandingContext';
+import AppDocumentTitle from './components/AppDocumentTitle';
 
 const Boards = lazy(() => import('./views/Boards'));
 const Analytics = lazy(() => import('./views/Analytics'));
@@ -43,6 +44,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <BrandingProvider>
         <Router>
+          <AppDocumentTitle />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />

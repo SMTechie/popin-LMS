@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSetting } from "@/src/server/settings";
+import { fallbackBranding } from "@/src/server/branding";
 
 const fallbackSite = {
-  heroTitle: "POPIN Demo School",
+  heroTitle: fallbackBranding.schoolName,
   heroSubtitle: "A connected operations layer for admissions, store, inventory and communication.",
   contactEmail: "admin@school.co.za",
   contactPhone: "+27 11 000 0000",
@@ -11,6 +12,16 @@ const fallbackSite = {
 };
 
 export async function GET() {
-  const site = await getSetting("site", fallbackSite);
-  return NextResponse.json(site);
+  const [site, branding] = await Promise.all([
+    getSetting("site", fallbackSite),
+    getSetting("branding", fallbackBranding)
+  ]);
+
+  const schoolName = branding.schoolName || fallbackBranding.schoolName;
+  return NextResponse.json({
+    ...site,
+    heroTitle: !site.heroTitle || site.heroTitle === fallbackBranding.schoolName ? schoolName : site.heroTitle,
+    contactEmail: site.contactEmail || branding.email || fallbackSite.contactEmail,
+    contactPhone: site.contactPhone || branding.phone || fallbackSite.contactPhone
+  });
 }

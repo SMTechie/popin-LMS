@@ -1,63 +1,89 @@
 # POPIN LMS
 
-Frontend prototype for a single-school learning and operations workspace.
-
-The API workspace has been removed for now. This phase focuses on the React/Vite interface, local mock data, layout, and user flows. Backend/API work can be added back later as a new workspace.
+School operations workspace built with Next.js, React, Prisma, and PostgreSQL.
 
 ## Stack
 
+- Next.js 15
 - React 18
-- Vite
 - TypeScript
 - Tailwind CSS
-- Radix Themes
-- Recharts
-- Framer Motion
+- Prisma
+- PostgreSQL / Neon
 
-## Run Locally
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the URL printed by Vite, usually:
+Open:
 
 ```text
-http://localhost:5173
+http://127.0.0.1:3001
 ```
 
-## Local Login
+## Environment Variables
 
-Authentication is local-only in this prototype.
+The web app expects these values:
 
 ```text
-Email: admin@school.co.za
-Password: Admin123!
+DATABASE_URL=postgresql://...
+AUTH_SECRET=...
+NEXT_PUBLIC_AUTH_BYPASS=false
 ```
 
-Any non-empty email and password will create a temporary local session.
+`NEXT_PUBLIC_AUTH_BYPASS` is optional and should stay `false` in production.
+
+## Database
+
+Generate Prisma client:
+
+```bash
+npm --workspace @popin/web run db:generate
+```
+
+Apply migrations:
+
+```bash
+npm --workspace @popin/web run db:migrate
+```
+
+Seed demo data:
+
+```bash
+npm --workspace @popin/web run db:seed
+```
+
+## Vercel Deployment
+
+This repo is ready to deploy to Vercel.
+
+Use these project settings:
+
+- Root Directory: `apps/web`
+- Framework Preset: `Next.js`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+
+Set these environment variables in Vercel:
+
+- `DATABASE_URL`
+- `AUTH_SECRET`
+- `NEXT_PUBLIC_AUTH_BYPASS=false`
+
+Notes:
+
+- Prisma client generation is automated during install and build.
+- Run `npm --workspace @popin/web run db:migrate` against the production database before the first production deploy, or from your release pipeline.
+- Run `npm --workspace @popin/web run db:seed` only if you want demo data in that environment.
 
 ## Scripts
 
 ```bash
 npm run dev
 npm run build
-npm run lint
 npm run typecheck
+npm run lint
 ```
-
-## Project Shape
-
-```text
-apps/
-  web/          React/Vite application
-packages/
-  shared/       Shared package placeholder
-```
-
-## Notes
-
-- Data shown in the dashboard and modules is mocked locally.
-- Branding is stored in local storage.
-- API integration points can be reintroduced later once the backend direction is clear.
