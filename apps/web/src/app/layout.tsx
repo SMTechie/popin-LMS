@@ -5,7 +5,16 @@ import "../../styles.css";
 
 export const metadata: Metadata = {
   title: "School Operations Workspace",
-  description: "School operations workspace for admissions, store, inventory and communication."
+  description: "School operations workspace for admissions, store, inventory and communication.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "School Operations"
+  },
+  icons: {
+    apple: "/api/pwa/icon?size=180"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
